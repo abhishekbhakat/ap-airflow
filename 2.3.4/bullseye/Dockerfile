@@ -108,10 +108,11 @@ RUN apt-get update \
         libpq-dev \
         libsasl2-dev \
         libssl-dev \
+        git \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ARG VERSION="2.3.4+astro.6"
+ARG VERSION="2.3.4"
 ARG SUBMODULES="async,azure,amazon,elasticsearch,google,password,cncf.kubernetes,mysql,postgres,redis,slack,ssh,statsd,virtualenv"
 ARG AIRFLOW_MODULE="apache-airflow[${SUBMODULES}]==$VERSION"
 ARG AIRFLOW_VERSION="2.3.4"
@@ -129,14 +130,19 @@ COPY include/pip-constraints.txt /usr/local/share/astronomer-pip-constraints.txt
 COPY build-time-pip-constraints.txt /tmp/build-time-pip-constraints.txt
 
 # Pip install airflow and astro security manager
-COPY dist/ /tmp/dist/
-RUN pip install "${AIRFLOW_MODULE}" celery flower \
+# COPY dist/ /tmp/dist/
+RUN pip install "${AIRFLOW_MODULE}" celery flower setuptools build wheel\
      --constraint /tmp/build-time-pip-constraints.txt \
     && pip install "https://github.com/astronomer/astronomer-airflow-scripts/releases/download/v0.0.5/astronomer_airflow_scripts-0.0.5-py3-none-any.whl" \
     && pip install "astronomer-airflow-version-check>=1.0.12" \
-    && pip install "astronomer-fab-security-manager==${ASTRONOMER_FAB_SECURITY_MANAGER_VERSION}" \
-    && pip install /tmp/dist/astronomer_certified_extensions*.whl \
-    && pip install https://github.com/astronomer/airflow-analytics-plugin/releases/download/1.0.2/astronomer_analytics_plugin-1.0.2-py3-none-any.whl
+    && pip install "astronomer-fab-security-manager==${ASTRONOMER_FAB_SECURITY_MANAGER_VERSION}"
+    # && pip install /tmp/dist/astronomer_certified_extensions*.whl
+
+
+RUN git clone https://github.com/astronomer/ap-airflow.git
+RUN cd ap-airflow/package && pip install -r dev-requirements.txt && python -m build -w
+RUN pip install ap-airflow/package/dist/astronomer_certified_extensions*.whl
+RUN rm -rf ap-airflow
 
 
 ## move this to same layer as airflow because its from tag.
@@ -151,7 +157,7 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ARG VERSION="2.3.4+astro.6"
+ARG VERSION="2.3.4"
 ARG AIRFLOW_VERSION="2.3.4"
 ARG ASTRONOMER_FAB_SECURITY_MANAGER_VERSION="1.9.3"
 LABEL io.astronomer.docker.airflow.version="${AIRFLOW_VERSION}"
